@@ -25,6 +25,7 @@ def upgrade() -> None:
     sa.Column('resource_group', sa.String(length=255), nullable=False),
     sa.Column('frontend_app_name', sa.String(length=255), nullable=False),
     sa.Column('backend_app_name', sa.String(length=255), nullable=False),
+    sa.Column('type', sa.String(length=50), server_default='DEV', nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )

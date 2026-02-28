@@ -3,6 +3,14 @@ import type { EnvironmentData } from '../components/AddEnvironmentModal';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
+// In-Memory cache to prevent redundant Azure API calls
+const azureCache: {
+    resourceGroups?: string[];
+    containerApps: Record<string, string[]>;
+} = {
+    containerApps: {}
+};
+
 export const environmentService = {
     async getEnvironments(): Promise<Environment[]> {
         const response = await fetch(`${API_BASE_URL}/environments/`);
@@ -15,9 +23,7 @@ export const environmentService = {
         return data.map((item: any) => ({
             id: item.id.toString(),
             name: item.name,
-            type: item.name.includes('Prod') ? 'PROD' :
-                item.name.includes('QA') ? 'QA' :
-                    item.name.includes('Integration') ? 'INTEGRATION' : 'DEV',
+            type: item.type || 'DEV',
             resourceGroup: item.resource_group,
             frontend: { name: item.frontend_app_name, status: 'Stopped' }, // Default until polled
             backend: { name: item.backend_app_name, status: 'Stopped' },
@@ -41,12 +47,14 @@ export const environmentService = {
                 resource_group: data.resourceGroup,
                 frontend_app_name: data.frontendName,
                 backend_app_name: data.backendName,
+                type: data.type,
                 is_active: true
             }),
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to create environment: ${response.statusText}`);
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || `Failed to create environment: ${response.statusText}`);
         }
 
         const item = await response.json();
@@ -84,6 +92,16 @@ export const environmentService = {
         return response.json();
     },
 
+    async startEnvironment(id: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/environments/${id}/start`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to start environment: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
     async stopEnvironment(id: string): Promise<any> {
         const response = await fetch(`${API_BASE_URL}/environments/${id}/stop`, {
             method: 'POST',
@@ -101,5 +119,33 @@ export const environmentService = {
         if (!response.ok) {
             throw new Error(`Failed to delete environment: ${response.statusText}`);
         }
+    },
+
+    async getAzureResourceGroups(): Promise<string[]> {
+        if (azureCache.resourceGroups) {
+            return azureCache.resourceGroups; // Return cached
+        }
+
+        const response = await fetch(`${API_BASE_URL}/azure/resource-groups`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch resource groups: ${response.statusText}`);
+        }
+        const data = await response.json();
+        azureCache.resourceGroups = data; // Set cache
+        return data;
+    },
+
+    async getAzureContainerApps(resourceGroupName: string): Promise<string[]> {
+        if (azureCache.containerApps[resourceGroupName]) {
+            return azureCache.containerApps[resourceGroupName]; // Return cached
+        }
+
+        const response = await fetch(`${API_BASE_URL}/azure/resource-groups/${resourceGroupName}/container-apps`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch container apps: ${response.statusText}`);
+        }
+        const data = await response.json();
+        azureCache.containerApps[resourceGroupName] = data; // Set cache
+        return data;
     }
 };

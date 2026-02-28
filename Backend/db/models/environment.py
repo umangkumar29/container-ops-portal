@@ -13,5 +13,6 @@ class EnvironmentApp(Base):
     resource_group = Column(String(255), nullable=False)
     frontend_app_name = Column(String(255), nullable=False)
     backend_app_name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False, server_default="DEV")
     is_active = Column(Boolean, nullable=False, default=True)
 

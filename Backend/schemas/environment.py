@@ -6,6 +6,7 @@ class EnvironmentBase(BaseModel):
     resource_group: str = Field(..., example="rg-kpit-qa")
     frontend_app_name: str = Field(..., example="frontend-container-app")
     backend_app_name: str = Field(..., example="backend-container-app")
+    type: str = Field(..., example="QA")
     is_active: bool = True
 
 

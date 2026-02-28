@@ -34,6 +34,15 @@ class EnvironmentRepository:
         statement = select(EnvironmentApp).where(EnvironmentApp.name == name)
         return self._session.scalar(statement)
 
+    def get_by_details(self, resource_group: str, frontend_app: str, backend_app: str) -> Optional[EnvironmentApp]:
+        """Check for identical environment configuration."""
+        statement = select(EnvironmentApp).where(
+            EnvironmentApp.resource_group == resource_group,
+            EnvironmentApp.frontend_app_name == frontend_app,
+            EnvironmentApp.backend_app_name == backend_app
+        )
+        return self._session.scalar(statement)
+
     def list(self, skip: int = 0, limit: int = 100) -> Sequence[EnvironmentApp]:
         """Return a paginated list of environments."""
         statement = (

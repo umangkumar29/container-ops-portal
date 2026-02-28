@@ -1,26 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Navigation } from '../components/Navigation';
 import { EnvironmentCard } from '../components/EnvironmentCard';
 import { AddEnvironmentModal, type EnvironmentData } from '../components/AddEnvironmentModal';
 import { motion } from 'motion/react';
-import { Plus, Activity, AlertTriangle, CheckCircle2, Loader2, Server, IndianRupee } from 'lucide-react';
+import { Plus, Activity, AlertTriangle, CheckCircle2, Loader2, Server } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { type Environment } from '../data/environments';
 import { environmentService } from '../services/api';
+import { toast } from 'sonner';
 
-function generateHistory(baseCost: number, variance: number, days = 30) {
-  return Array.from({ length: days }, (_, i) => ({
-    date: new Date(Date.now() - (days - 1 - i) * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0],
-    cost: Math.round((baseCost + (Math.random() - 0.5) * 2 * variance) * 100) / 100,
-  }));
-}
+import { DashboardLayout } from '../components/DashboardLayout';
 
 export function Home() {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchEnvironments();
@@ -28,13 +20,10 @@ export function Home() {
 
   const fetchEnvironments = async () => {
     try {
-      setIsLoading(true);
       const data = await environmentService.getEnvironments();
       setEnvironments(data);
     } catch (error) {
       console.error("Failed to load environments:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -43,8 +32,21 @@ export function Home() {
       const newEnv = await environmentService.createEnvironment(data);
       setEnvironments(prev => [...prev, newEnv]);
       setIsAddModalOpen(false);
-    } catch (error) {
+      toast.success("Environment created successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add environment.");
       console.error("Failed to add environment:", error);
+    }
+  };
+
+  const handleDeleteEnvironment = async (id: string) => {
+    try {
+      await environmentService.deleteEnvironment(id);
+      setEnvironments(prev => prev.filter(e => e.id !== id));
+      toast.success("Environment deleted successfully!");
+    } catch (error: any) {
+      toast.error("Failed to delete environment.");
+      console.error("Failed to delete environment:", error);
     }
   };
 
@@ -59,7 +61,7 @@ export function Home() {
   const errored = environments.filter(
     e => e.frontend.status === 'Error' || e.backend.status === 'Error'
   ).length;
-  const totalMtdCost = environments.reduce((sum, e) => sum + e.mtdCost, 0);
+
 
   const stats = [
     {
@@ -67,14 +69,14 @@ export function Home() {
       value: totalEnvs,
       icon: Server,
       color: 'text-[#6366F1]',
-      bg: 'bg-[rgba(99,102,241,0.08)]',
-      border: 'border-[rgba(99,102,241,0.15)]',
+      bg: 'bg-indigo-500/[0.08]',
+      border: 'border-indigo-500/[0.15]',
     },
     {
       label: 'Fully Operational',
       value: healthy,
       icon: CheckCircle2,
-      color: 'text-emerald-400',
+      color: 'text-emerald-500',
       bg: 'bg-emerald-500/[0.08]',
       border: 'border-emerald-500/[0.15]',
     },
@@ -82,7 +84,7 @@ export function Home() {
       label: 'Starting Up',
       value: starting,
       icon: Loader2,
-      color: 'text-amber-400',
+      color: 'text-amber-500',
       bg: 'bg-amber-500/[0.08]',
       border: 'border-amber-500/[0.15]',
     },
@@ -90,24 +92,15 @@ export function Home() {
       label: 'Needs Attention',
       value: errored,
       icon: AlertTriangle,
-      color: 'text-red-400',
+      color: 'text-red-500',
       bg: 'bg-red-500/[0.08]',
       border: 'border-red-500/[0.15]',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-300">
-      {/* Background gradient effects — dark mode only */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none dark:opacity-100 opacity-0 transition-opacity duration-300">
-        <div className="absolute -top-40 left-1/4 w-[500px] h-[500px] bg-[#6366F1] rounded-full blur-[140px] opacity-[0.12]" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#8B5CF6] rounded-full blur-[140px] opacity-[0.10]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#1E2538] rounded-full blur-[120px] opacity-20" />
-      </div>
-
-      <Navigation userRole="Administrator" />
-
-      <main className="relative max-w-[1600px] mx-auto px-6 py-10">
+    <DashboardLayout userRole="Superadmin" userName="Alex Rivera">
+      <div className="relative max-w-[1600px] mx-auto w-full">
         {/* Page Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -172,31 +165,6 @@ export function Home() {
           })}
         </motion.div>
 
-        {/* Monthly Cost Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-          className="mb-8 p-4 rounded-xl bg-gradient-to-r from-[rgba(99,102,241,0.08)] via-[rgba(139,92,246,0.06)] to-[rgba(99,102,241,0.08)] border border-[rgba(99,102,241,0.15)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[rgba(99,102,241,0.12)] border border-[rgba(99,102,241,0.2)]">
-              <IndianRupee className="w-5 h-5 text-[#6366F1]" />
-            </div>
-            <div>
-              <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold mb-0.5">
-                Total Infrastructure Cost (MTD)
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                ₹{totalMtdCost.toLocaleString('en-IN')}
-              </div>
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground sm:text-right">
-            <span className="text-emerald-400 font-semibold">Click on any cost tile</span> below to view detailed analytics
-          </div>
-        </motion.div>
-
         {/* Environment Grid */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -212,7 +180,7 @@ export function Home() {
               transition={{ duration: 0.4, delay: 0.3 + index * 0.07 }}
               className="h-full"
             >
-              <EnvironmentCard environment={env} />
+              <EnvironmentCard environment={env} onDelete={handleDeleteEnvironment} />
             </motion.div>
           ))}
 
@@ -239,13 +207,13 @@ export function Home() {
             </div>
           </motion.div>
         </motion.div>
-      </main>
+      </div>
 
       <AddEnvironmentModal
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
         onSave={handleAddEnvironment}
       />
-    </div>
+    </DashboardLayout>
   );
 }

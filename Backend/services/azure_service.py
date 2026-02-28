@@ -99,3 +99,20 @@ class AzureContainerAppService:
         except Exception:  # noqa: BLE001
             logger.exception("Error stopping app '%s'", app_name)
             return False
+
+    async def start_app(self, resource_group: str, app_name: str) -> bool:
+        """Start an Azure Container App."""
+        client = self._build_client()
+        if client is None:
+            return False
+
+        def _start():
+            poller = client.container_apps.begin_start(resource_group, app_name)
+            poller.wait()
+
+        try:
+            await asyncio.to_thread(_start)
+            return True
+        except Exception:  # noqa: BLE001
+            logger.exception("Error starting app '%s'", app_name)
+            return False

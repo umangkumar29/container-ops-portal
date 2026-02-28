@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { type Environment } from '../data/environments';
 import { environmentService } from '../services/api';
-import { Navigation } from '../components/Navigation';
+import { DashboardLayout } from '../components/DashboardLayout';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area,
@@ -180,16 +180,8 @@ export function Analytics() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-      {/* Background gradient — dark only */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none dark:opacity-100 opacity-0 transition-opacity duration-300">
-        <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-[#6366F1] rounded-full blur-[160px] opacity-[0.07]" />
-        <div className="absolute bottom-0 left-1/3 w-[300px] h-[300px] bg-[#8B5CF6] rounded-full blur-[120px] opacity-[0.06]" />
-      </div>
-
-      <Navigation userRole="Administrator" />
-
-      <main className="relative max-w-[1600px] mx-auto px-6 py-8">
+    <DashboardLayout userName="Alex Rivera" userRole="Superadmin">
+      <div className="relative max-w-[1600px] mx-auto w-full">
         {/* Back + Header */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -662,7 +654,7 @@ export function Analytics() {
             </CardContent>
           </Card>
         </motion.div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

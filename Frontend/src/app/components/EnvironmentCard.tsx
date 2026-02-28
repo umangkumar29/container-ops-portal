@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { RotateCw, TrendingUp, TrendingDown, Clock, DollarSign, ChevronRight, ExternalLink, StopCircle } from 'lucide-react';
+import { RotateCw, TrendingUp, TrendingDown, Clock, DollarSign, ChevronRight, ExternalLink, StopCircle, Play, MoreVertical, Trash2 } from 'lucide-react';
 import { ContainerStatus } from './ContainerStatus';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import type { Environment } from '../data/environments';
 import { environmentService } from '../services/api';
 import type { ContainerStatus as StatusType } from './StatusBadge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 interface EnvironmentCardProps {
   environment: Environment;
   onRestart?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const TYPE_CONFIG = {
@@ -19,11 +21,13 @@ const TYPE_CONFIG = {
   INTEGRATION: { label: 'INT', bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' },
 };
 
-export function EnvironmentCard({ environment, onRestart }: EnvironmentCardProps) {
+export function EnvironmentCard({ environment, onRestart, onDelete }: EnvironmentCardProps) {
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartSuccess, setRestartSuccess] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [stopSuccess, setStopSuccess] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [startSuccess, setStartSuccess] = useState(false);
   
   const [frontendStatus, setFrontendStatus] = useState<StatusType>(environment.frontend.status);
   const [backendStatus, setBackendStatus] = useState<StatusType>(environment.backend.status);
@@ -97,6 +101,32 @@ export function EnvironmentCard({ environment, onRestart }: EnvironmentCardProps
     }
   };
 
+  const handleStart = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsStarting(true);
+    setStartSuccess(false);
+
+    setFrontendStatus('Starting');
+    setBackendStatus('Starting');
+
+    try {
+      await environmentService.startEnvironment(environment.id);
+      setStartSuccess(true);
+    } catch (err) {
+      console.error("Start failed", err);
+    } finally {
+      setIsStarting(false);
+      setTimeout(() => setStartSuccess(false), 3000);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(environment.id);
+    }
+  };
+
   const handleAnalyticsClick = () => {
     navigate(`/analytics/${environment.id}`);
   };
@@ -107,6 +137,15 @@ export function EnvironmentCard({ environment, onRestart }: EnvironmentCardProps
     if (s.includes('Starting')) return 'starting';
     return 'healthy';
   })();
+
+  const isAllStopped = frontendStatus === 'Stopped' && backendStatus === 'Stopped';
+  const isAllRunning = frontendStatus === 'Running' && backendStatus === 'Running';
+  const isBusy = isRestarting || isStopping || isStarting || overallStatus === 'starting';
+
+  // Specific visibility flags to make UI cleaner during transitions
+  const showStartButton = isAllStopped || isStarting;
+  const showStopButton = isAllRunning || isStopping;
+  const showRestartButton = isAllRunning || isRestarting;
 
   return (
     <motion.div
@@ -159,38 +198,61 @@ export function EnvironmentCard({ environment, onRestart }: EnvironmentCardProps
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap justify-end mt-1 lg:mt-0">
+               {/* Start Button */}
+               {showStartButton && (
+                 <motion.button
+                   onClick={handleStart}
+                   disabled={isBusy}
+                   whileHover={!isBusy ? { scale: 1.05 } : {}}
+                   whileTap={!isBusy ? { scale: 0.95 } : {}}
+                   className={`relative flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all duration-300 cursor-pointer
+                     ${startSuccess
+                       ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                       : isBusy
+                       ? 'bg-emerald-500/10 border border-emerald-500/10 cursor-not-allowed text-emerald-500/40'
+                       : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:shadow-[0_0_16px_rgba(16,185,129,0.4)]'
+                     }`}
+                 >
+                   <Play className="w-3.5 h-3.5 fill-current" />
+                   <span className="hidden xl:block">
+                     {startSuccess ? 'Done!' : isStarting ? 'Starting...' : 'Start'}
+                   </span>
+                 </motion.button>
+               )}
               {/* Stop Button */}
-              <motion.button
-                onClick={handleStop}
-                disabled={isStopping || isRestarting}
-                whileHover={!(isStopping || isRestarting) ? { scale: 1.05 } : {}}
-                whileTap={!(isStopping || isRestarting) ? { scale: 0.95 } : {}}
-                className={`relative flex-shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-medium flex items-center gap-1.5 transition-all duration-300 cursor-pointer
-                  ${stopSuccess
-                    ? 'bg-red-500/20 border border-red-500/30 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.2)]'
-                    : isStopping
-                    ? 'bg-red-500/30 border border-red-500/20 cursor-not-allowed text-red-500'
-                    : 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white hover:shadow-[0_0_16px_rgba(239,68,68,0.4)]'
-                  }`}
-              >
-                <StopCircle className="w-3.5 h-3.5" />
-                <span className="hidden sm:block">
-                  {stopSuccess ? 'Done!' : isStopping ? 'Stopping...' : 'Stop'}
-                </span>
-              </motion.button>
-              
+              {showStopButton && (
+                <motion.button
+                  onClick={handleStop}
+                  disabled={isBusy}
+                  whileHover={!isBusy ? { scale: 1.05 } : {}}
+                  whileTap={!isBusy ? { scale: 0.95 } : {}}
+                  className={`relative flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all duration-300 cursor-pointer
+                    ${stopSuccess
+                      ? 'bg-red-500/20 border border-red-500/30 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.2)]'
+                      : isBusy
+                      ? 'bg-red-500/10 border border-red-500/10 cursor-not-allowed text-red-500/40'
+                      : 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white hover:shadow-[0_0_16px_rgba(239,68,68,0.4)]'
+                    }`}
+                >
+                  <StopCircle className="w-3.5 h-3.5" />
+                  <span className="hidden xl:block">
+                    {stopSuccess ? 'Done!' : isStopping ? 'Stopping...' : 'Stop'}
+                  </span>
+                </motion.button>
+              )}
               {/* Restart Button */}
-              <motion.button
+              {showRestartButton && (
+                <motion.button
                 onClick={handleRestart}
-                disabled={isRestarting || isStopping}
-                whileHover={!(isRestarting || isStopping) ? { scale: 1.05 } : {}}
-                whileTap={!(isRestarting || isStopping) ? { scale: 0.95 } : {}}
-                className={`relative flex-shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-medium flex items-center gap-1.5 transition-all duration-300 cursor-pointer
+                disabled={isBusy || isAllStopped}
+                whileHover={!(isBusy || isAllStopped) ? { scale: 1.05 } : {}}
+                whileTap={!(isBusy || isAllStopped) ? { scale: 0.95 } : {}}
+                className={`relative flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all duration-300 cursor-pointer
                   ${restartSuccess
                     ? 'bg-[#10B981]/20 border border-[#10B981]/30 text-[#10B981] shadow-[0_0_12px_rgba(16,185,129,0.2)]'
-                    : isRestarting
-                    ? 'bg-[#6366F1]/30 border border-[#6366F1]/20 cursor-not-allowed text-[#6366F1]'
+                    : (isBusy || isAllStopped)
+                    ? 'bg-[#6366F1]/10 border border-[#6366F1]/10 cursor-not-allowed text-[#6366F1]/40'
                     : 'bg-[#6366F1]/10 border border-[#6366F1]/30 text-[#6366F1] hover:bg-[#6366F1] hover:text-white hover:shadow-[0_0_16px_rgba(99,102,241,0.4)]'
                   }`}
               >
@@ -200,12 +262,28 @@ export function EnvironmentCard({ environment, onRestart }: EnvironmentCardProps
                 >
                   <RotateCw className="w-3.5 h-3.5" />
                 </motion.div>
-                <span className="hidden sm:block">
+                <span className="hidden xl:block">
                   {restartSuccess ? 'Done!' : isRestarting ? 'Restarting...' : 'Restart'}
                 </span>
-              </motion.button>
-            </div>
+                </motion.button>
+              )}
+
+              {/* Options Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all">
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background border-border shadow-xl w-48">
+                  <DropdownMenuItem onClick={handleDelete} className="text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Environment
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
           </div>
+        </div>
         </div>
 
         {/* Container Status Section */}

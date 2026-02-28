@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Box, Globe, Server, Tag, Layers } from 'lucide-react';
 import { motion } from 'motion/react';
+import { environmentService } from '../services/api';
+import { Spinner } from './ui/spinner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export interface EnvironmentData {
   name: string;
@@ -36,9 +39,49 @@ export function AddEnvironmentModal({ open, onOpenChange, onSave }: AddEnvironme
     backendName: '',
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [resourceGroups, setResourceGroups] = useState<string[]>([]);
+  const [containerApps, setContainerApps] = useState<string[]>([]);
+  const [loadingRGs, setLoadingRGs] = useState(false);
+  const [loadingApps, setLoadingApps] = useState(false);
+
+  useEffect(() => {
+    if (open && resourceGroups.length === 0) {
+      const fetchRGs = async () => {
+        setLoadingRGs(true);
+        try {
+          const rgs = await environmentService.getAzureResourceGroups();
+          setResourceGroups(rgs);
+        } catch (error) {
+          console.error("Failed to fetch resource groups:", error);
+        } finally {
+          setLoadingRGs(false);
+        }
+      };
+      fetchRGs();
+    }
+  }, [open]);
+
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = async (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === 'resourceGroup') {
+      setFormData(prev => ({ ...prev, frontendName: '', backendName: '' }));
+      setContainerApps([]);
+      setLoadingApps(true);
+      try {
+        const apps = await environmentService.getAzureContainerApps(value);
+        setContainerApps(apps);
+      } catch (error) {
+        console.error("Failed to fetch container apps:", error);
+      } finally {
+        setLoadingApps(false);
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -122,20 +165,30 @@ export function AddEnvironmentModal({ open, onOpenChange, onSave }: AddEnvironme
                 <div className="h-px flex-1 bg-border" />
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="resourceGroup" className="text-xs font-medium text-foreground">
                     Resource Group
                   </Label>
-                  <Input
-                    id="resourceGroup"
-                    name="resourceGroup"
-                    placeholder='e.g., "rg-kpit-gm-qa"'
-                    value={formData.resourceGroup}
-                    onChange={handleChange}
-                    className="bg-background border-border text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-[#6366F1] focus-visible:border-[#6366F1]"
-                    required
-                  />
+                  <div className="relative">
+                    <Select 
+                       disabled={loadingRGs} 
+                       value={formData.resourceGroup} 
+                       onValueChange={(val) => handleSelectChange('resourceGroup', val)}
+                    >
+                      <SelectTrigger className="w-full h-10 bg-background border-border text-foreground focus:ring-2 focus:ring-[#6366F1] focus:border-[#6366F1] transition-all">
+                        <SelectValue placeholder={loadingRGs ? "Discovering Resource Groups..." : "Select Resource Group..."} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border shadow-xl">
+                        {resourceGroups.map(rg => (
+                          <SelectItem key={rg} value={rg} className="cursor-pointer focus:bg-[#6366F1]/20 focus:text-[#6366F1] transition-colors">{rg}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {loadingRGs && (
+                      <Spinner size="sm" className="absolute right-8 top-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -144,30 +197,50 @@ export function AddEnvironmentModal({ open, onOpenChange, onSave }: AddEnvironme
                       <Globe className="w-3 h-3 text-[#6366F1]" />
                       Frontend App Name
                     </Label>
-                    <Input
-                      id="frontendName"
-                      name="frontendName"
-                      placeholder='e.g., "kpit-gm-qa-frontend"'
-                      value={formData.frontendName}
-                      onChange={handleChange}
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-[#6366F1] focus-visible:border-[#6366F1]"
-                      required
-                    />
+                    <div className="relative">
+                      <Select 
+                         disabled={!formData.resourceGroup || loadingApps} 
+                         value={formData.frontendName} 
+                         onValueChange={(val) => handleSelectChange('frontendName', val)}
+                      >
+                        <SelectTrigger className="w-full h-10 bg-background border-border text-foreground focus:ring-2 focus:ring-[#6366F1] focus:border-[#6366F1] transition-all disabled:opacity-50">
+                          <SelectValue placeholder={loadingApps ? "Loading Apps..." : "Select Frontend App..."} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-border shadow-xl">
+                          {containerApps.map(app => (
+                            <SelectItem key={app} value={app} className="cursor-pointer focus:bg-[#6366F1]/20 focus:text-[#6366F1] transition-colors">{app}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {loadingApps && (
+                        <Spinner size="sm" className="absolute right-8 top-1/2 -translate-y-1/2" />
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="backendName" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <Server className="w-3 h-3 text-[#10B981]" />
                       Backend App Name
                     </Label>
-                    <Input
-                      id="backendName"
-                      name="backendName"
-                      placeholder='e.g., "kpit-gm-qa-backend"'
-                      value={formData.backendName}
-                      onChange={handleChange}
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-[#6366F1] focus-visible:border-[#6366F1]"
-                      required
-                    />
+                    <div className="relative">
+                      <Select 
+                         disabled={!formData.resourceGroup || loadingApps} 
+                         value={formData.backendName} 
+                         onValueChange={(val) => handleSelectChange('backendName', val)}
+                      >
+                        <SelectTrigger className="w-full h-10 bg-background border-border text-foreground focus:ring-2 focus:ring-[#6366F1] focus:border-[#6366F1] transition-all disabled:opacity-50">
+                          <SelectValue placeholder={loadingApps ? "Loading Apps..." : "Select Backend App..."} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-border shadow-xl">
+                          {containerApps.map(app => (
+                            <SelectItem key={app} value={app} className="cursor-pointer focus:bg-[#6366F1]/20 focus:text-[#6366F1] transition-colors">{app}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {loadingApps && (
+                         <Spinner size="sm" className="absolute right-8 top-1/2 -translate-y-1/2" />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

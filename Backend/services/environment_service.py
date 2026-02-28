@@ -20,6 +20,14 @@ class EnvironmentService:
         self._azure_service = azure_service
 
     def create_environment(self, payload: EnvironmentCreate) -> EnvironmentApp:
+        existing = self._repository.get_by_details(
+            resource_group=payload.resource_group,
+            frontend_app=payload.frontend_app_name,
+            backend_app=payload.backend_app_name
+        )
+        if existing:
+            raise ValueError(f"An environment containing these apps already exists (Name: {existing.name}).")
+            
         environment = EnvironmentApp(**payload.model_dump())
         return self._repository.create(environment)
 
@@ -53,5 +61,12 @@ class EnvironmentService:
         results = await asyncio.gather(
             self._azure_service.stop_app(environment.resource_group, environment.frontend_app_name),
             self._azure_service.stop_app(environment.resource_group, environment.backend_app_name),
+        )
+        return all(results)
+
+    async def start_environment(self, environment: EnvironmentApp) -> bool:
+        results = await asyncio.gather(
+            self._azure_service.start_app(environment.resource_group, environment.frontend_app_name),
+            self._azure_service.start_app(environment.resource_group, environment.backend_app_name),
         )
         return all(results)

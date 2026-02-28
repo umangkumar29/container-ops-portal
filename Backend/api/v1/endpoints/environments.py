@@ -101,3 +101,21 @@ async def stop_environment(
 
     return {"status": "Stop initiated successfully"}
 
+@router.post(
+    "/{env_id}/start",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_environment(
+    env_id: int,
+    service: EnvironmentService = Depends(get_environment_service),
+) -> dict[str, str]:
+    environment = service.get_environment(env_id)
+    if environment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Environment not found.")
+
+    success = await service.start_environment(environment)
+    if not success:
+        return {"status": "Partial/Failed start. Check logs."}
+
+    return {"status": "Start initiated successfully"}
+
