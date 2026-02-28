@@ -1,0 +1,27 @@
+# General
+.DS_Store
+.vscode/
+.idea/
+.env
+
+# Backend (Python)
+Backend/venv/
+Backend/__pycache__/
+Backend/*.pyc
+Backend/*.pyo
+Backend/*.pyd
+Backend/.pytest_cache/
+Backend/.coverage
+Backend/htmlcov/
+Backend/alembic.ini
+Backend/test_azure.py
+
+# Frontend (Node / React / Vite)
+Frontend/node_modules/
+Frontend/dist/
+Frontend/dist-ssr/
+Frontend/.eslintcache
+Frontend/npm-debug.log*
+Frontend/yarn-debug.log*
+Frontend/yarn-error.log*
+Frontend/.pnpm-debug.log*
