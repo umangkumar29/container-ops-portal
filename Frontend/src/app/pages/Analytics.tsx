@@ -121,6 +121,17 @@ export function Analytics() {
     { week: 'Week 4', cost: chartData.slice(21, 28).reduce((s, d) => s + d.cost, 0) },
   ].filter(w => w.cost > 0);
 
+  // Live Performance & Scaling Dummy Data (24h)
+  const performanceData = Array.from({ length: 24 }).map((_, i) => ({
+    time: `${String(i).padStart(2, '0')}:00`,
+    frontendCpu: Number((Math.random() * 0.8 + 0.2).toFixed(2)),
+    backendCpu: Number((Math.random() * 1.5 + 0.5).toFixed(2)),
+    frontendMem: Number((Math.random() * 1.5 + 0.5).toFixed(2)),
+    backendMem: Number((Math.random() * 2.5 + 1.0).toFixed(2)),
+    frontReplicas: Math.floor(i / 4) % 2 === 0 ? 2 : 4,
+    backReplicas: Math.floor(i / 6) % 2 === 0 ? 3 : 5,
+  }));
+
   const avgDailyCost = chartData.length > 0
     ? chartData.reduce((s, d) => s + d.cost, 0) / chartData.length
     : 0;
@@ -182,6 +193,10 @@ export function Analytics() {
   return (
     <DashboardLayout userName="Alex Rivera" userRole="Superadmin">
       <div className="relative max-w-[1600px] mx-auto w-full">
+        {/* Background glow effects */}
+        <div className="fixed top-0 right-0 -z-10 w-[600px] h-[600px] bg-[#6366f1]/5 dark:bg-[#6366f1]/10 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="fixed bottom-0 left-0 -z-10 w-[500px] h-[500px] bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/10 blur-[100px] rounded-full pointer-events-none"></div>
+
         {/* Back + Header */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -200,27 +215,29 @@ export function Analytics() {
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-foreground">{environment.name}</h1>
-                <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider border ${typeConfig.bg} ${typeConfig.text} ${typeConfig.border}`}>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{environment.name}</h1>
+                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border ${typeConfig.bg} ${typeConfig.text} ${typeConfig.border}`}>
                   {typeConfig.label}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-muted-foreground">Live</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-500">Live</span>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground font-mono">
-                Resource Group: <span className="text-foreground">{environment.resourceGroup}</span>
+              <p className="text-slate-500 dark:text-slate-400 font-mono text-sm">
+                Resource Group: <span className="text-slate-700 dark:text-slate-300">{environment.resourceGroup}</span>
               </p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-[160px] bg-card border-border text-foreground">
-                  <Calendar className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Date Range" />
+                <SelectTrigger className="w-[160px] bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all rounded-lg h-10">
+                  <div className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-2 text-slate-500 dark:text-slate-400" />
+                    <SelectValue placeholder="Date Range" />
+                  </div>
                 </SelectTrigger>
-                <SelectContent className="bg-card border-border">
+                <SelectContent className="bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                   <SelectItem value="7d">Last 7 Days</SelectItem>
                   <SelectItem value="14d">Last 14 Days</SelectItem>
                   <SelectItem value="30d">Last 30 Days</SelectItem>
@@ -232,20 +249,20 @@ export function Analytics() {
                 variant="outline"
                 onClick={handleRestart}
                 disabled={isRestarting}
-                className="gap-2 border-[#6366F1]/30 text-[#6366F1] hover:bg-[#6366F1]/10 cursor-pointer"
+                className="gap-2 bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-all rounded-lg h-10 text-slate-700 dark:text-slate-300 cursor-pointer"
               >
                 <motion.div
                   animate={isRestarting ? { rotate: 360 } : { rotate: 0 }}
                   transition={{ duration: 0.8, repeat: isRestarting ? Infinity : 0, ease: 'linear' }}
                 >
-                  <RotateCw className="w-4 h-4" />
+                  <RotateCw className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 </motion.div>
                 {isRestarting ? 'Restarting...' : 'Restart Env'}
               </Button>
 
               <Button
                 variant="destructive"
-                className="gap-2 cursor-pointer"
+                className="gap-2 cursor-pointer h-10 rounded-lg font-medium"
               >
                 <StopCircle className="w-4 h-4" />
                 Stop Env
@@ -270,16 +287,20 @@ export function Analytics() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + i * 0.05 }}
               >
-                <Card className={`bg-card/60 backdrop-blur-sm ${card.border} hover:border-[rgba(99,102,241,0.25)] transition-all duration-200`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`p-2 rounded-lg ${card.iconBg}`}>
-                        <Icon className={`w-4 h-4 ${card.iconColor}`} />
+                <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-white/5 rounded-2xl relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-none">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
+                        <Icon className={`w-5 h-5 ${card.iconColor}`} />
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-foreground mb-1">{card.value}</div>
-                    <div className="text-[11px] text-muted-foreground mb-1.5">{card.title}</div>
-                    <div className="text-xs">{card.sub}</div>
+                    <div className="space-y-1">
+                      <h3 className="text-3xl font-bold font-mono text-slate-900 dark:text-slate-100">{card.value}</h3>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{card.title}</p>
+                    </div>
+                    <div className="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      {card.sub}
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -294,22 +315,25 @@ export function Analytics() {
           transition={{ delay: 0.2 }}
         >
           <Tabs defaultValue="trend" className="space-y-4">
-            <TabsList className="bg-card border border-border">
-              <TabsTrigger value="trend" className="data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#6366F1]">
+            <TabsList className="bg-slate-100/40 dark:bg-[#0f172a]/40 border-b border-slate-200 dark:border-slate-800 rounded-none p-0 overflow-x-auto flex flex-nowrap min-w-max h-auto py-3 px-4 justify-start gap-2">
+              <TabsTrigger value="trend" className="px-5 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm border-none">
                 Cost Trend
               </TabsTrigger>
-              <TabsTrigger value="breakdown" className="data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#6366F1]">
+              <TabsTrigger value="breakdown" className="px-5 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm border-none">
                 Service Breakdown
               </TabsTrigger>
-              <TabsTrigger value="weekly" className="data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#6366F1]">
+              <TabsTrigger value="weekly" className="px-5 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm border-none">
                 Weekly View
+              </TabsTrigger>
+              <TabsTrigger value="performance" className="px-5 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all whitespace-nowrap data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm border-none">
+                Performance & Scaling
               </TabsTrigger>
             </TabsList>
 
             {/* Trend Tab */}
             <TabsContent value="trend">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <Card className="lg:col-span-2 bg-card/60 backdrop-blur-sm border-border/50">
+                <Card className="lg:col-span-2 bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <div>
@@ -371,7 +395,7 @@ export function Analytics() {
                 </Card>
 
                 {/* Donut Chart */}
-                <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+                <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">Cost Allocation</CardTitle>
                     <CardDescription className="text-xs">Frontend vs Backend</CardDescription>
@@ -447,7 +471,7 @@ export function Analytics() {
 
             {/* Breakdown Tab */}
             <TabsContent value="breakdown">
-              <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+              <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
                 <CardHeader>
                   <CardTitle className="text-base">Frontend vs Backend Cost Split</CardTitle>
                   <CardDescription className="text-xs">Daily cost breakdown by service over last {days} days</CardDescription>
@@ -500,7 +524,7 @@ export function Analytics() {
 
             {/* Weekly Tab */}
             <TabsContent value="weekly">
-              <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+              <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
                 <CardHeader>
                   <CardTitle className="text-base">Weekly Cost Comparison</CardTitle>
                   <CardDescription className="text-xs">Total cost aggregated by week</CardDescription>
@@ -551,6 +575,123 @@ export function Analytics() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Performance & Scaling Tab */}
+            <TabsContent value="performance" className="space-y-5">
+              {/* Active Replicas Step Chart */}
+              <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-foreground">Active Replicas Timeline</CardTitle>
+                  <CardDescription className="text-xs">Container scaling events over the last 24 hours</CardDescription>
+                </CardHeader>
+                <CardContent className="h-[250px] pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={performanceData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.08)" vertical={false} />
+                      <XAxis dataKey="time" fontSize={11} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" interval={3} />
+                      <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" width={30} />
+                      <Tooltip content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          return (
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-xl text-xs">
+                              <div className="text-muted-foreground mb-1.5">{label}</div>
+                              {payload.map((p: any, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                                  <span className="text-foreground font-semibold">{p.value}</span>
+                                  <span className="text-muted-foreground">{p.name} instances</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                      }} />
+                      <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+                      <Line type="stepAfter" dataKey="frontReplicas" name="Frontend" stroke="#6366F1" strokeWidth={2} dot={false} />
+                      <Line type="stepAfter" dataKey="backReplicas" name="Backend" stroke="#10B981" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* CPU & Memory Split */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-foreground">CPU Consumption (Cores)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[250px] pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={performanceData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <defs>
+                          <linearGradient id="cpuGrad1" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366F1" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="cpuGrad2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.08)" vertical={false} />
+                        <XAxis dataKey="time" fontSize={11} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" interval={5} />
+                        <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" width={40} />
+                        <Tooltip content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            return (
+                              <div className="bg-card border border-border rounded-lg p-3 shadow-xl text-xs">
+                                <div className="text-muted-foreground mb-1.5">{label}</div>
+                                {payload.map((p: any, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                                    <span className="text-foreground font-semibold">{p.value}</span>
+                                    <span className="text-muted-foreground">{p.name} Cores</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                        }} />
+                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+                        <Area type="monotone" dataKey="frontendCpu" name="Frontend" stroke="#6366F1" strokeWidth={2} fill="url(#cpuGrad1)" />
+                        <Area type="monotone" dataKey="backendCpu" name="Backend" stroke="#10B981" strokeWidth={2} fill="url(#cpuGrad2)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-foreground">Memory Usage (GiB)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[250px] pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={performanceData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.08)" vertical={false} />
+                        <XAxis dataKey="time" fontSize={11} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" interval={5} />
+                        <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" width={40} />
+                        <Tooltip content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            return (
+                              <div className="bg-card border border-border rounded-lg p-3 shadow-xl text-xs">
+                                <div className="text-muted-foreground mb-1.5">{label}</div>
+                                {payload.map((p: any, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                                    <span className="text-foreground font-semibold">{p.value}</span>
+                                    <span className="text-muted-foreground">{p.name} GiB</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                        }} />
+                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+                        <Line type="monotone" dataKey="frontendMem" name="Frontend" stroke="#6366F1" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="backendMem" name="Backend" stroke="#10B981" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
           </Tabs>
         </motion.div>
 
@@ -561,7 +702,7 @@ export function Analytics() {
           transition={{ delay: 0.35 }}
           className="mt-5"
         >
-          <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+          <Card className="bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-none rounded-2xl overflow-hidden">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-[rgba(99,102,241,0.1)]">
