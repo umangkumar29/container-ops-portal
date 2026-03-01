@@ -56,6 +56,8 @@ export function Analytics() {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30d');
   const [isRestarting, setIsRestarting] = useState(false);
+  const [costData, setCostData] = useState<any>(null);
+  const [costLoading, setCostLoading] = useState(false);
 
   useEffect(() => {
     const loadEnv = async () => {
@@ -73,6 +75,26 @@ export function Analytics() {
     };
     loadEnv();
   }, [envId]);
+
+  // Filter history based on date range
+  const daysMap: Record<string, number> = { '7d': 7, '14d': 14, '30d': 30, '90d': 90 };
+  const days = daysMap[dateRange] ?? 30;
+
+  useEffect(() => {
+    if (!environment) return;
+    const fetchCost = async () => {
+      setCostLoading(true);
+      try {
+        const data = await environmentService.getEnvironmentCost(environment.id, days);
+        setCostData(data);
+      } catch (err) {
+        console.error("Failed to fetch custom cost data", err);
+      } finally {
+        setCostLoading(false);
+      }
+    };
+    fetchCost();
+  }, [environment, days]);
 
   if (loading) {
     return (
@@ -98,10 +120,9 @@ export function Analytics() {
 
   const typeConfig = TYPE_LABELS[environment.type];
 
-  // Filter history based on date range
-  const daysMap: Record<string, number> = { '7d': 7, '14d': 14, '30d': 30, '90d': 90 };
-  const days = daysMap[dateRange] ?? 30;
-  const chartData = environment.history.slice(-days).map(h => ({
+  const rawDailyCosts: { date: string, cost: number }[] = costData?.daily_costs || [];
+  
+  const chartData = rawDailyCosts.map(h => ({
     name: h.date,
     cost: h.cost,
     frontend: Math.round(h.cost * (environment.breakdown.frontend / 100)),
@@ -143,10 +164,15 @@ export function Analytics() {
     setIsRestarting(false);
   };
 
+  const totalCost = costData?.total_cost || 0;
+  const lastUpdated = costData?.last_updated ? costData.last_updated : 'Unknown (Delayed 24h)';
+  const costTodayValue = rawDailyCosts.length > 0 ? rawDailyCosts[rawDailyCosts.length - 1].cost : 0;
+  const currencySymbol = costData?.currency === 'USD' ? '$' : '₹';
+
   const overviewCards = [
     {
-      title: 'Total Cost (MTD)',
-      value: `₹${environment.mtdCost.toLocaleString('en-IN')}`,
+      title: 'Total Cost',
+      value: costLoading ? 'Loading...' : `${currencySymbol}${totalCost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
       sub: (
         <span className={`flex items-center gap-1 ${environment.costTrend > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
           {environment.costTrend > 0
@@ -163,8 +189,8 @@ export function Analytics() {
     },
     {
       title: 'Cost Today',
-      value: `₹${environment.costToday.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
-      sub: <span className="text-muted-foreground">Updated 15 mins ago</span>,
+      value: costLoading ? 'Loading...' : `${currencySymbol}${costTodayValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+      sub: <span className="text-muted-foreground">{costData?.last_updated ? `Data as of ${lastUpdated}` : 'Waiting on Azure...'}</span>,
       icon: Zap,
       iconColor: 'text-amber-400',
       iconBg: 'bg-amber-500/10',
@@ -172,7 +198,7 @@ export function Analytics() {
     },
     {
       title: 'Projected EOM',
-      value: `₹${projectedEOM.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+      value: costLoading ? 'Loading...' : `${currencySymbol}${projectedEOM.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
       sub: <span className="text-muted-foreground">Based on {days}d average</span>,
       icon: Target,
       iconColor: 'text-blue-400',
@@ -181,7 +207,7 @@ export function Analytics() {
     },
     {
       title: 'Avg. Daily Cost',
-      value: `₹${avgDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+      value: costLoading ? 'Loading...' : `${currencySymbol}${avgDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
       sub: <span className="text-muted-foreground">Over last {days} days</span>,
       icon: Cpu,
       iconColor: 'text-purple-400',

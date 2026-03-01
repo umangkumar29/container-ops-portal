@@ -121,6 +121,14 @@ export const environmentService = {
         }
     },
 
+    async getEnvironmentCost(id: string, days: number = 30): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/cost/app/${id}?days=${days}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch cost data: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
     async getAzureResourceGroups(): Promise<string[]> {
         if (azureCache.resourceGroups) {
             return azureCache.resourceGroups; // Return cached

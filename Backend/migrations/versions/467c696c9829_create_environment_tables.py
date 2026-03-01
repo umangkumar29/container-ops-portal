@@ -27,6 +27,7 @@ def upgrade() -> None:
     sa.Column('backend_app_name', sa.String(length=255), nullable=False),
     sa.Column('type', sa.String(length=50), server_default='DEV', nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_environment_apps_id'), 'environment_apps', ['id'], unique=False)

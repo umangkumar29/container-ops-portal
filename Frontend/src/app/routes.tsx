@@ -1,17 +1,19 @@
-import { createBrowserRouter, redirect } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { Home } from "./pages/Home";
 import { Analytics } from "./pages/Analytics";
 import { Login } from "./pages/Login";
 import { UserManagement } from "./pages/UserManagement";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    loader: () => redirect("/dashboard"),
+    element: <ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>,
   },
   {
     path: "/dashboard",
-    Component: Home,
+    element: <ProtectedRoute><Home /></ProtectedRoute >,
   },
   {
     path: "/login",
@@ -19,10 +21,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "/users",
-    Component: UserManagement,
+    element: <ProtectedRoute><UserManagement /></ProtectedRoute >,
   },
   {
     path: "/analytics/:envId",
-    Component: Analytics,
+    element: <ProtectedRoute><Analytics /></ProtectedRoute >,
   },
 ]);

@@ -32,6 +32,9 @@ export function EnvironmentCard({ environment, onRestart, onDelete }: Environmen
   const [frontendStatus, setFrontendStatus] = useState<StatusType>(environment.frontend.status);
   const [backendStatus, setBackendStatus] = useState<StatusType>(environment.backend.status);
 
+  const [costData, setCostData] = useState<any>(null);
+  const [costLoading, setCostLoading] = useState(false);
+
   const navigate = useNavigate();
   const typeConfig = TYPE_CONFIG[environment.type];
 
@@ -60,6 +63,21 @@ export function EnvironmentCard({ environment, onRestart, onDelete }: Environmen
     fetchStatus(); // initial fetch
     const interval = setInterval(fetchStatus, 60000); // Poll every 60 seconds
     return () => clearInterval(interval);
+  }, [environment.id]);
+
+  useEffect(() => {
+    const fetchCost = async () => {
+      setCostLoading(true);
+      try {
+        const data = await environmentService.getEnvironmentCost(environment.id, 30);
+        setCostData(data);
+      } catch (err) {
+        console.error("Failed to fetch custom cost data on card", err);
+      } finally {
+        setCostLoading(false);
+      }
+    };
+    fetchCost();
   }, [environment.id]);
 
   const handleRestart = async (e: React.MouseEvent) => {
@@ -146,6 +164,11 @@ export function EnvironmentCard({ environment, onRestart, onDelete }: Environmen
   const showStartButton = isAllStopped || isStarting;
   const showStopButton = isAllRunning || isStopping;
   const showRestartButton = isAllRunning || isRestarting;
+
+  const totalCost = costData?.total_cost || 0;
+  const rawDailyCosts: { date: string, cost: number }[] = costData?.daily_costs || [];
+  const costTodayValue = rawDailyCosts.length > 0 ? rawDailyCosts[rawDailyCosts.length - 1].cost : 0;
+  const currencySymbol = costData?.currency === 'USD' ? '$' : '₹';
 
   return (
     <motion.div
@@ -333,13 +356,13 @@ export function EnvironmentCard({ environment, onRestart, onDelete }: Environmen
             <div>
               <div className="text-[11px] text-muted-foreground mb-0.5">Today</div>
               <div className="text-[15px] font-bold text-foreground">
-                ₹{environment.costToday.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                {costLoading ? '...' : `${currencySymbol}${costTodayValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
               </div>
             </div>
             <div>
               <div className="text-[11px] text-muted-foreground mb-0.5">Month-to-Date</div>
               <div className="text-[15px] font-bold text-foreground">
-                ₹{environment.mtdCost.toLocaleString('en-IN')}
+                {costLoading ? '...' : `${currencySymbol}${totalCost.toLocaleString('en-IN')}`}
               </div>
             </div>
           </div>

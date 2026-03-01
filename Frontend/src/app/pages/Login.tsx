@@ -1,23 +1,53 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { Shield, Box, Server, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Shield, Box, Server, ArrowRight, AlertCircle } from 'lucide-react';
+import { useMsal, useIsAuthenticated } from '@azure/msal-react';
+import { loginRequest } from '../authConfig';
 
 export function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation();
+  const { instance, inProgress } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  // If we came here from a ProtectedRoute kick, we might have an error state
+  const authFailedWarning = location.state?.msAuthFailed;
+
+  const [isLoading, setIsLoading] = useState(inProgress !== "none");
+
+  // Keep loading state synced with MSAL progress
+  useEffect(() => {
+    if (inProgress !== "none") {
+      setIsLoading(true);
+    }
+  }, [inProgress]);
+
+  // If already authenticated by MSAL, jump straight to the dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleLogin = async () => {
     setIsLoading(true);
-    // Simulate login delay
-    setTimeout(() => {
+    try {
+      await instance.loginRedirect({
+        ...loginRequest,
+        prompt: 'select_account' // Forces the prompt to ask for email/password
+      });
+      // After redirect, the entire window will go to the Azure AD login
+    } catch (e) {
+      console.error('Azure AD Login Failed', e);
       setIsLoading(false);
-      navigate('/dashboard');
-    }, 1000);
+    }
   };
+
+  // Prevent flash of login UI if we are already authenticated and about to redirect
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex bg-[#0B0F19] text-white font-sans overflow-hidden">
@@ -104,92 +134,54 @@ export function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-            <p className="text-slate-400 mb-8">Sign in to the Control Center to manage your environments.</p>
+            <h2 className="text-4xl font-bold text-white mb-3">Enterprise Access</h2>
+            <p className="text-slate-400 mb-10 text-lg">Sign in to the Control Center to manage your environments.</p>
 
             {/* Glassmorphism Form Card */}
-            <div className="p-8 rounded-3xl bg-[#0F1423]/80 border border-white/5 backdrop-blur-xl shadow-2xl">
-              <form onSubmit={handleLogin} className="space-y-5">
-                
-                <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-sm font-medium text-slate-300 block">Email Address</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Mail className="w-4 h-4 text-slate-500" />
-                    </div>
-                    <input 
-                      id="email"
-                      type="email" 
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#0B0F19] border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50 focus:border-[#6366F1] transition-all"
-                      placeholder="admin@kportal.com"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="password" className="text-sm font-medium text-slate-300 block">Password</label>
-                    <button type="button" className="text-xs font-medium text-[#6366F1] hover:text-[#8B5CF6] transition-colors focus:outline-none">
-                      Forgot Password?
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Lock className="w-4 h-4 text-slate-500" />
-                    </div>
-                    <input 
-                      id="password"
-                      type="password" 
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#0B0F19] border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50 focus:border-[#6366F1] transition-all"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button 
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full relative group overflow-hidden rounded-xl p-[1px]"
-                  >
-                    <span className="absolute inset-0 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] opacity-80 group-hover:opacity-100 transition-opacity"></span>
-                    <div className="relative flex items-center justify-center gap-2 bg-[#6366F1] px-4 py-3 rounded-xl transition-all group-hover:bg-opacity-0">
-                      {isLoading ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <span className="font-semibold text-white tracking-wide">Sign In</span>
-                          <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-                        </>
-                      )}
-                    </div>
-                  </button>
-                </div>
-              </form>
-
-              <div className="mt-8 flex items-center justify-center flex-col gap-4">
-                 <div className="flex items-center w-full">
-                    <div className="h-px bg-slate-800 flex-1"></div>
-                    <span className="px-4 text-xs text-slate-500 font-medium">OR</span>
-                    <div className="h-px bg-slate-800 flex-1"></div>
-                 </div>
-
-                 <button className="w-full flex items-center justify-center gap-2.5 py-2.5 bg-[#0B0F19] border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 font-medium transition-all group">
-                    {/* Azure SVG Icon minimalist */}
-                    <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-[#0078D4]" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M11.4 2.4L2.5 11.3l.9.9 8-8 8.8 8.8.9-.9-9.7-9.7z" fill="currentColor"/>
-                      <path d="M2.5 11.3v9.8h9.8v-9.8H2.5zm8.9 8.9H3.4v-8h8v8z" fill="currentColor"/>
-                      <path d="M12.6 11.3v9.8h8.9v-9.8h-8.9zm8 8.9h-7.1v-8h7.1v8z" fill="currentColor"/>
-                    </svg>
-                    <span>Sign in with Azure AD</span>
-                 </button>
+            <div className="p-8 sm:p-10 rounded-[2.5rem] bg-[#0F1423]/80 border border-white/5 backdrop-blur-xl shadow-2xl flex flex-col items-center">
+              
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#0078D4]/20 to-[#6366F1]/20 flex items-center justify-center mb-8 border border-white/10 shadow-inner">
+                <Shield className="w-10 h-10 text-[#0078D4]" />
               </div>
+
+              <h3 className="text-xl font-semibold text-slate-200 mb-2">Microsoft Entra ID</h3>
+              <p className="text-sm text-center text-slate-500 mb-6">
+                Authentication is secured and managed by your organization's Azure Active Directory.
+              </p>
+
+              {authFailedWarning && !isLoading && (
+                <div className="w-full mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-200 leading-relaxed">
+                    Session expired or authentication failed. Please sign in again to access the control center.
+                  </p>
+                </div>
+              )}
+
+              <button 
+                onClick={handleLogin}
+                disabled={isLoading}
+                className="w-full relative group overflow-hidden rounded-xl p-[1px]"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-[#0078D4] to-[#6366F1] opacity-60 group-hover:opacity-100 transition-opacity duration-300"></span>
+                <div className="relative flex items-center justify-center gap-3 bg-[#0B0F19] hover:bg-opacity-0 px-6 py-4 rounded-xl transition-all duration-300">
+                  {isLoading ? (
+                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      {/* Azure SVG Icon minimalist */}
+                      <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-[#0078D4] group-hover:text-white transition-colors" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M11.4 2.4L2.5 11.3l.9.9 8-8 8.8 8.8.9-.9-9.7-9.7z" fill="currentColor"/>
+                        <path d="M2.5 11.3v9.8h9.8v-9.8H2.5zm8.9 8.9H3.4v-8h8v8z" fill="currentColor"/>
+                        <path d="M12.6 11.3v9.8h8.9v-9.8h-8.9zm8 8.9h-7.1v-8h7.1v8z" fill="currentColor"/>
+                      </svg>
+                      <span className="font-semibold text-white tracking-wide text-lg">Sign in with Azure</span>
+                      <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                    </>
+                  )}
+                </div>
+              </button>
+
             </div>
           </motion.div>
         </div>

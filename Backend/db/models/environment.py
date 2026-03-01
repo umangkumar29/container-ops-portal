@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, Integer, String
+import datetime
+from sqlalchemy import Boolean, Column, Integer, String, DateTime
 
 from db.base import Base
 
@@ -15,4 +16,5 @@ class EnvironmentApp(Base):
     backend_app_name = Column(String(255), nullable=False)
     type = Column(String(50), nullable=False, server_default="DEV")
     is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.datetime.now(datetime.timezone.utc))
 

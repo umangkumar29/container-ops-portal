@@ -6,9 +6,18 @@ import {
   Users, 
   Bell, 
   UserCircle, 
-  ChevronDown 
+  ChevronDown,
+  LogOut 
 } from 'lucide-react';
+import { useMsal } from '@azure/msal-react';
 import { ThemeToggle } from './ThemeToggle';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -16,9 +25,16 @@ interface DashboardLayoutProps {
   userName?: string;
 }
 
-export function DashboardLayout({ children, userRole = 'Superadmin', userName = 'Alex Rivera' }: DashboardLayoutProps) {
+export function DashboardLayout({ children, userRole = 'Superadmin', userName = 'Guest' }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { instance, accounts } = useMsal();
+
+  const activeUser = accounts[0]?.name || userName;
+
+  const handleLogout = () => {
+    instance.logoutRedirect({ postLogoutRedirectUri: '/' });
+  };
 
   const navLinks = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -69,7 +85,7 @@ export function DashboardLayout({ children, userRole = 'Superadmin', userName = 
                 <UserCircle className="w-6 h-6" />
              </div>
              <div className="flex-1 min-w-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <p className="text-sm font-semibold truncate">{userName}</p>
+                <p className="text-sm font-semibold truncate">{activeUser}</p>
                 <span className="text-[10px] text-[#6366F1] uppercase font-bold tracking-wider">{userRole}</span>
              </div>
           </div>
@@ -110,11 +126,32 @@ export function DashboardLayout({ children, userRole = 'Superadmin', userName = 
 
             <div className="h-8 w-px bg-border mx-2"></div>
             
-            <div className="flex items-center gap-3 px-3 py-1.5 rounded-full border border-border bg-card/30 hover:bg-accent/50 cursor-pointer transition-colors">
-              <UserCircle className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm font-medium">{userName}</span>
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div className="flex items-center gap-3 px-3 py-1.5 rounded-full border border-border bg-card/30 hover:bg-accent/50 cursor-pointer transition-colors">
+                  <UserCircle className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm font-medium">{activeUser}</span>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 mt-2">
+                <DropdownMenuLabel className="font-normal border-b border-border/50 pb-2 mb-1">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{activeUser}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {userRole}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuItem 
+                  onClick={handleLogout} 
+                  className="text-red-400 focus:text-red-300 focus:bg-red-400/10 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

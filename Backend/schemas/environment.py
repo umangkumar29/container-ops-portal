@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -20,6 +22,7 @@ class EnvironmentRead(EnvironmentBase):
     """Schema returned from the API."""
 
     id: int
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
