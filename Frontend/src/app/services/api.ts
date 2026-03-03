@@ -46,5 +46,35 @@ export const environmentService = {
             throw new Error(`Failed to restart app: ${response.statusText}`);
         }
         return response.json();
-    }
+    },
+
+    async fetchSubscriptionCost(subscriptionId: string): Promise<{
+        currency: string;
+        total_cost: number;
+        last_updated: string | null;
+        daily_costs: { date: string; cost: number }[];
+    }> {
+        const response = await fetch(`${API_BASE_URL}/cost/subscription/${subscriptionId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch cost: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
+    async fetchResourceGroupCost(subscriptionId: string, resourceGroup: string, days: number = 30): Promise<{
+        currency: string;
+        total_cost: number;
+        scope: string;
+        last_updated: string | null;
+        daily_costs: { date: string; cost: number }[];
+        per_app_costs: { app_name: string; cost: number }[];
+    }> {
+        const response = await fetch(
+            `${API_BASE_URL}/cost/resource-group/${subscriptionId}/${resourceGroup}?days=${days}`
+        );
+        if (!response.ok) {
+            throw new Error(`Failed to fetch RG cost: ${response.statusText}`);
+        }
+        return response.json();
+    },
 };

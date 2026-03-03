@@ -24,7 +24,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><UserManagement /></ProtectedRoute >,
   },
   {
-    path: "/analytics/:envId",
+    path: "/analytics/:subscriptionId/:resourceGroup",
     element: <ProtectedRoute><Analytics /></ProtectedRoute >,
   },
 ]);

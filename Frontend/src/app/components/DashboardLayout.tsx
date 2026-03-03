@@ -28,6 +28,7 @@ interface DashboardLayoutProps {
   userRole?: string;
   userName?: string;
   onSync?: () => void;
+  isSyncing?: boolean;
   subscriptions?: { id: string; name: string }[];
   activeSub?: string;
   onSubChange?: (id: string) => void;
@@ -38,6 +39,7 @@ export function DashboardLayout({
   userRole = 'Superadmin', 
   userName = 'Guest', 
   onSync,
+  isSyncing = false,
   subscriptions = [],
   activeSub,
   onSubChange
@@ -183,10 +185,11 @@ export function DashboardLayout({
             <div className="h-6 w-[1px] bg-slate-200 dark:bg-white/10 mx-2"></div>
             <button 
               onClick={onSync}
-              className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-lg text-white text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20"
+              disabled={isSyncing}
+              className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-lg text-white text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <RefreshCw className="w-4 h-4" />
-              Sync Now
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Sync Now'}
             </button>
           </div>
         </header>

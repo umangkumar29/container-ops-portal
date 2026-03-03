@@ -1,95 +1,144 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  IndianRupee, TrendingUp, Search, ChevronDown, MoreVertical, 
-  Box, Activity, RefreshCw, StopCircle, PlayCircle, ScrollText, Network, Loader2
+import {
+  IndianRupee, Search, ChevronDown,
+  Box, RefreshCw, StopCircle, PlayCircle, Network, Loader2, BarChart2
 } from 'lucide-react';
 import { environmentService, type EnvironmentApp } from '../services/api';
 import { toast } from 'sonner';
-
 import { DashboardLayout } from '../components/DashboardLayout';
+import { QUERY_KEYS, QUERY_CONFIG } from '../config/queryConfig';
 
 export function Home() {
-  const [apps, setApps] = useState<EnvironmentApp[]>([]);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [openRGs, setOpenRGs] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [processingApps, setProcessingApps] = useState<Record<string, string>>({});
+  const [activeSub, setActiveSub] = useState<string>('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
+  // ─── Apps query ───────────────────────────────────────────────────────────
+  const { data: apps = [], isFetching: isLoading } = useQuery<EnvironmentApp[]>({
+    queryKey: QUERY_KEYS.APPS,
+    queryFn: () => environmentService.discoverAll(),
+    ...QUERY_CONFIG.APPS,
+    // After fresh data arrives, sync dependent local state
+    select: (data) => data,
+  });
+
+  // Open all RGs by default when apps first load, and set active subscription
   useEffect(() => {
-    fetchApps();
-  }, []);
-
-  const fetchApps = async () => {
-    setIsLoading(true);
-    try {
-      const data = await environmentService.discoverAll();
-      setApps(data);
-      // Open all RGs by default
+    if (apps.length === 0) return;
+    setOpenRGs(prev => {
       const rgs: Record<string, boolean> = {};
-      data.forEach(e => rgs[e.resourceGroup] = true);
-      setOpenRGs(rgs);
-    } catch (error) {
-      console.error("Failed to discover apps from Azure:", error);
-      toast.error('Failed to connect to Azure API.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      apps.forEach(e => { rgs[e.resourceGroup] = prev[e.resourceGroup] ?? true; });
+      return rgs;
+    });
+    if (!activeSub) setActiveSub(apps[0].subscriptionId);
+  }, [apps]);
 
-  const toggleRg = (rg: string) => {
-    setOpenRGs(prev => ({ ...prev, [rg]: !prev[rg] }));
-  };
+  // ─── Subscription cost query (depends on activeSub) ───────────────────────
+  const { data: costData, isFetching: isCostLoading } = useQuery({
+    queryKey: QUERY_KEYS.SUBSCRIPTION_COST(activeSub),
+    queryFn: () => environmentService.fetchSubscriptionCost(activeSub),
+    enabled: Boolean(activeSub), // only run when we have a subscription
+    ...QUERY_CONFIG.SUBSCRIPTION_COST,
+  });
 
-  // Group by resource group
-  const grouped = apps.reduce((acc, app) => {
+  // ─── Derived state ─────────────────────────────────────────────────────────
+  const filteredApps = activeSub ? apps.filter(app => app.subscriptionId === activeSub) : apps;
+
+  const grouped = filteredApps.reduce((acc, app) => {
     if (!acc[app.resourceGroup]) acc[app.resourceGroup] = [];
     acc[app.resourceGroup].push(app);
     return acc;
   }, {} as Record<string, EnvironmentApp[]>);
 
-  // Stats calculation
-  const totalContainers = apps.length;
-  let running = 0;
-  let stopped = 0;
-  let failed = 0;
-
-  apps.forEach(app => {
-    const status = app.status;
-    if (status === 'Running') running++;
-    else if (status === 'Stopped') stopped++;
-    else if (status === 'Failed' || status === 'Error') failed++;
+  const totalContainers = filteredApps.length;
+  let running = 0, stopped = 0, failed = 0;
+  filteredApps.forEach(app => {
+    if (app.status === 'Running') running++;
+    else if (app.status === 'Stopped') stopped++;
+    else if (app.status === 'Failed' || app.status === 'Error') failed++;
   });
-
-  const handleStart = async (app: EnvironmentApp, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProcessingApps(prev => ({ ...prev, [app.id]: 'Starting...' }));
-    try { await environmentService.startApp(app.subscriptionId, app.resourceGroup, app.name); toast.success('Started'); await fetchApps(); } catch(err) { toast.error('Start failed'); }
-    finally { setProcessingApps(prev => { const next = { ...prev }; delete next[app.id]; return next; }); }
-  };
-  const handleStop = async (app: EnvironmentApp, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProcessingApps(prev => ({ ...prev, [app.id]: 'Stopping...' }));
-    try { await environmentService.stopApp(app.subscriptionId, app.resourceGroup, app.name); toast.success('Stopped'); await fetchApps(); } catch(err) { toast.error('Stop failed'); }
-    finally { setProcessingApps(prev => { const next = { ...prev }; delete next[app.id]; return next; }); }
-  };
-  const handleRestart = async (app: EnvironmentApp, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProcessingApps(prev => ({ ...prev, [app.id]: 'Restarting...' }));
-    try { await environmentService.restartApp(app.subscriptionId, app.resourceGroup, app.name); toast.success('Restarted'); await fetchApps(); } catch(err) { toast.error('Restart failed'); }
-    finally { setProcessingApps(prev => { const next = { ...prev }; delete next[app.id]; return next; }); }
-  };
-
-  const filteredRGs = Object.entries(grouped).filter(([rg]) => 
-     rg.toLowerCase().includes(search.toLowerCase())
-  );
 
   const uniqueSubscriptions = Array.from(
     new Map(apps.map(app => [app.subscriptionId, app.subscriptionName])).entries()
   ).map(([id, name]) => ({ id, name }));
 
+  const filteredRGs = Object.entries(grouped).filter(([rg]) =>
+    rg.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+  const toggleRg = (rg: string) => setOpenRGs(prev => ({ ...prev, [rg]: !prev[rg] }));
+  const handleSubChange = (id: string) => setActiveSub(id);
+
+  const formatCost = (amount: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
+    } catch {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
+  };
+
+  // ─── App actions: after each action invalidate the apps cache ──────────────
+  const withProcessing = (
+    app: EnvironmentApp,
+    label: string,
+    action: () => Promise<any>,
+    successMsg: string,
+    failMsg: string,
+  ) => async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProcessingApps(prev => ({ ...prev, [app.id]: label }));
+    try {
+      await action();
+      toast.success(successMsg);
+      // Invalidate so the next time the query runs it fetches fresh data
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPS });
+    } catch {
+      toast.error(failMsg);
+    } finally {
+      setProcessingApps(prev => { const next = { ...prev }; delete next[app.id]; return next; });
+    }
+  };
+
+  const handleStart   = (app: EnvironmentApp, e: React.MouseEvent) =>
+    withProcessing(app, 'Starting...', () => environmentService.startApp(app.subscriptionId, app.resourceGroup, app.name), 'Started', 'Start failed')(e);
+  const handleStop    = (app: EnvironmentApp, e: React.MouseEvent) =>
+    withProcessing(app, 'Stopping...', () => environmentService.stopApp(app.subscriptionId, app.resourceGroup, app.name), 'Stopped', 'Stop failed')(e);
+  const handleRestart = (app: EnvironmentApp, e: React.MouseEvent) =>
+    withProcessing(app, 'Restarting...', () => environmentService.restartApp(app.subscriptionId, app.resourceGroup, app.name), 'Restarted', 'Restart failed')(e);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      // refetchType: 'all' forces an immediate network call even if data is within staleTime
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPS, refetchType: 'all' }),
+        activeSub
+          ? queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SUBSCRIPTION_COST(activeSub), refetchType: 'all' })
+          : Promise.resolve(),
+      ]);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
-    <DashboardLayout userName="Superadmin" userRole="System" onSync={fetchApps} subscriptions={uniqueSubscriptions}>
+    <DashboardLayout
+      userName="Superadmin"
+      userRole="System"
+      onSync={handleSync}
+      isSyncing={isSyncing}
+      subscriptions={uniqueSubscriptions}
+      activeSub={activeSub}
+      onSubChange={handleSubChange}
+    >
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white/80 dark:bg-[rgba(30,41,59,0.4)] backdrop-blur-md border border-slate-200 dark:border-blue-500/15 p-6 rounded-2xl relative overflow-hidden group shadow-sm dark:shadow-lg">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-8 -mt-8 blur-2xl group-hover:bg-blue-500/10 transition-all"></div>
@@ -98,10 +147,22 @@ export function Home() {
             <IndianRupee className="text-blue-500 w-5 h-5" />
           </div>
           <div className="flex items-baseline gap-2">
-            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">Live</h2>
-            <span className="text-blue-500 text-xs font-bold flex items-center gap-0.5" title="Direct from Azure"></span>
+            {isCostLoading ? (
+              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+            ) : costData ? (
+              <>
+                <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">
+                  {formatCost(costData.total_cost, costData.currency)}
+                </h2>
+                <span className="text-blue-400 text-xs font-semibold">{costData.currency}</span>
+              </>
+            ) : (
+              <h2 className="text-xl font-bold text-slate-500">—</h2>
+            )}
           </div>
-          <p className="text-[10px] text-slate-500 mt-2 font-medium">Tracking Azure Direct Sync</p>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium">
+            {costData?.last_updated ? `Last updated: ${costData.last_updated}` : 'Month-to-date · 24-48h delay'}
+          </p>
         </div>
 
         <div className="md:col-span-3 bg-white/80 dark:bg-[rgba(30,41,59,0.4)] backdrop-blur-md border border-slate-200 dark:border-blue-500/15 p-6 rounded-2xl flex flex-wrap items-center justify-between gap-6 shadow-sm dark:shadow-lg">
@@ -183,21 +244,24 @@ export function Home() {
                 onClick={() => toggleRg(rg)}
               >
                 <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                     <ChevronDown className={`w-5 h-5 text-blue-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                     <span className="font-bold text-slate-900 dark:text-slate-100">{rg}</span>
                   </div>
-                  <div className="hidden sm:block h-4 w-[1px] bg-slate-200 dark:bg-white/10"></div>
-                  <div className="flex items-center gap-4">
-                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[10px] font-bold tracking-wider ring-1 ring-blue-500/20 uppercase">
-                      {envs[0].subscriptionName}
-                    </span>
-                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-slate-500 text-xs">
-                  <span className="font-medium hidden sm:block">{envs.length} Apps</span>
-                  <button className="hover:text-foreground hover:bg-slate-800 p-1 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
-                    <MoreVertical className="w-5 h-5" />
+                <div className="flex items-center gap-3 text-slate-500 text-xs">
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-semibold text-[11px]">
+                    {envs.length} Apps
+                  </span>
+                  <button
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/analytics/${envs[0].subscriptionId}/${encodeURIComponent(rg)}`);
+                    }}
+                  >
+                    <BarChart2 className="w-3.5 h-3.5" />
+                    Cost Analytics
                   </button>
                 </div>
               </div>
@@ -357,10 +421,7 @@ function ActionButtons({
         <RefreshCw className="w-4 h-4" />
       </button>
 
-      {/* Logs Button */}
-      <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-500/10 transition-all" title="Logs">
-        <ScrollText className="w-4 h-4" />
-      </button>
+
     </div>
   );
 }
