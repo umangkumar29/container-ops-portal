@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+import threading
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +15,7 @@ from azure.mgmt.costmanagement.models import (
     QueryGrouping,
 )
 
-from api.v1.endpoints.azure_discovery import get_azure_credentials
+from core import Settings, get_azure_credential, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,62 @@ class CostResponse(BaseModel):
     last_updated: Optional[str] = None
     daily_costs: List[DailyCost] = []
     per_app_costs: List[AppCost] = []
+
+
+_cost_cache: dict[str, tuple[datetime.datetime, CostResponse]] = {}
+_cost_cache_lock = threading.Lock()
+
+
+def _copy_model(model: BaseModel) -> BaseModel:
+    if hasattr(model, "model_copy"):
+        return model.model_copy(deep=True)  # type: ignore[attr-defined]
+    return model.copy(deep=True)  # type: ignore[attr-defined]
+
+
+def _get_cached_response(cache_key: str, ttl_seconds: int) -> Optional[CostResponse]:
+    if ttl_seconds <= 0:
+        return None
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with _cost_cache_lock:
+        entry = _cost_cache.get(cache_key)
+        if not entry:
+            return None
+        timestamp, response = entry
+        if (now - timestamp).total_seconds() > ttl_seconds:
+            del _cost_cache[cache_key]
+            return None
+        return _copy_model(response)
+
+
+def _set_cached_response(cache_key: str, ttl_seconds: int, value: CostResponse) -> None:
+    if ttl_seconds <= 0:
+        return
+    with _cost_cache_lock:
+        _cost_cache[cache_key] = (datetime.datetime.now(datetime.timezone.utc), _copy_model(value))
+
+
+def _seconds_until_end_of_day(now: datetime.datetime) -> int:
+    """Return seconds remaining until the next UTC midnight."""
+    tomorrow = (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    seconds = int((tomorrow - now).total_seconds())
+    return max(seconds, 0)
+
+
+def _daily_cache_key(base_key: str, now: datetime.datetime) -> str:
+    """Partition cache keys by UTC day to limit calls to once per day."""
+    return f"{now.date().isoformat()}::{base_key}"
+
+
+def _effective_cache_ttl(now: datetime.datetime, settings: Settings) -> int:
+    """
+    Ensure cost queries stay cached for the rest of the UTC day.
+    Honors explicit disabling by leaving TTL at 0 when configured.
+    """
+    configured_ttl = settings.cost_cache_ttl_seconds
+    if configured_ttl <= 0:
+        return 0
+    # Keep the cache warm until the end of the day, even if the configured TTL is shorter.
+    return max(configured_ttl, _seconds_until_end_of_day(now))
 
 
 def _build_query(start: datetime.datetime, end: datetime.datetime, group_by_resource: bool = False) -> QueryDefinition:
@@ -99,7 +156,8 @@ def _parse_rows(rows, has_resource_group: bool = False):
 @router.get("/subscription/{subscription_id}", response_model=CostResponse)
 async def get_subscription_cost(
     subscription_id: str,
-    credential=Depends(get_azure_credentials),
+    credential=Depends(get_azure_credential),
+    settings: Settings = Depends(get_settings),
 ):
     """
     Get Month-To-Date cost for a given Azure subscription.
@@ -107,8 +165,14 @@ async def get_subscription_cost(
     """
     scope = f"/subscriptions/{subscription_id}"
     now = datetime.datetime.now(datetime.timezone.utc)
-    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    effective_ttl = _effective_cache_ttl(now, settings)
+    cache_key = _daily_cache_key(f"subscription:{subscription_id}", now)
+    cached_response = _get_cached_response(cache_key, effective_ttl)
+    if cached_response:
+        logger.debug("Returning cached subscription cost for '%s' from cache", subscription_id)
+        return cached_response
 
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     query = _build_query(start_of_month, now, group_by_resource=False)
 
     try:
@@ -117,13 +181,16 @@ async def get_subscription_cost(
 
         total_cost, currency, daily_costs_dict, _, last_date = _parse_rows(result.rows or [], has_resource_group=False)
 
-        return CostResponse(
+        response = CostResponse(
             currency=currency,
             total_cost=round(total_cost, 2),
             scope=scope,
             last_updated=last_date,
             daily_costs=[DailyCost(date=k, cost=round(v, 2)) for k, v in sorted(daily_costs_dict.items())],
         )
+        _set_cached_response(cache_key, effective_ttl, response)
+
+        return response
 
     except Exception as e:
         logger.exception("Error fetching cost for subscription '%s'", subscription_id)
@@ -135,7 +202,8 @@ async def get_resource_group_cost(
     subscription_id: str,
     resource_group: str,
     days: int = 30,
-    credential=Depends(get_azure_credentials),
+    credential=Depends(get_azure_credential),
+    settings: Settings = Depends(get_settings),
 ):
     """
     Get cost breakdown for a specific Resource Group, grouped per container app.
@@ -144,6 +212,17 @@ async def get_resource_group_cost(
     scope = f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
     now = datetime.datetime.now(datetime.timezone.utc)
     start = now - datetime.timedelta(days=days)
+    effective_ttl = _effective_cache_ttl(now, settings)
+    cache_key = _daily_cache_key(f"resource-group:{subscription_id}:{resource_group}:{days}", now)
+    cached_response = _get_cached_response(cache_key, effective_ttl)
+    if cached_response:
+        logger.debug(
+            "Returning cached resource group cost for '%s/%s' (days=%d)",
+            subscription_id,
+            resource_group,
+            days,
+        )
+        return cached_response
 
     # Query 1: daily total for the RG (no grouping)
     daily_query = _build_query(start, now, group_by_resource=False)
@@ -166,7 +245,7 @@ async def get_resource_group_cost(
             for name, cost in sorted(resource_costs_dict.items(), key=lambda x: x[1], reverse=True)
         ]
 
-        return CostResponse(
+        response = CostResponse(
             currency=currency,
             total_cost=round(total_cost, 2),
             scope=scope,
@@ -174,7 +253,11 @@ async def get_resource_group_cost(
             daily_costs=[DailyCost(date=k, cost=round(v, 2)) for k, v in sorted(daily_costs_dict.items())],
             per_app_costs=per_app,
         )
+        _set_cached_response(cache_key, effective_ttl, response)
+
+        return response
 
     except Exception as e:
         logger.exception("Error fetching cost for RG '%s' in sub '%s'", resource_group, subscription_id)
         raise HTTPException(status_code=500, detail=f"Azure Cost Management Error: {str(e)}")
+ 

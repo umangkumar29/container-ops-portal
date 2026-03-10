@@ -25,9 +25,14 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <MsalProvider instance={msalInstance}>
+      {msalInstance ? (
+        <MsalProvider instance={msalInstance}>
+          <App />
+        </MsalProvider>
+      ) : (
         <App />
-      </MsalProvider>
+      )}
     </QueryClientProvider>
   </React.StrictMode>,
 );
+ 

@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     azure_client_id: Optional[str] = Field(default=None, alias="AZURE_CLIENT_ID")
     azure_client_secret: Optional[str] = Field(default=None, alias="AZURE_CLIENT_SECRET")
     azure_subscription_id: Optional[str] = Field(default=None, alias="AZURE_SUBSCRIPTION_ID")
+    cost_cache_ttl_seconds: int = Field(
+        default=300,
+        alias="COST_CACHE_TTL_SECONDS",
+        ge=0,
+        description="Seconds to keep Azure cost responses cached. Set to 0 to disable caching.",
+    )
 
     cors_allow_origins: list[str] = Field(default_factory=lambda: ["*"])
     cors_allow_credentials: bool = True
@@ -40,3 +46,4 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a cached instance of application settings."""
     return Settings()
+ 

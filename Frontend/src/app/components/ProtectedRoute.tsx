@@ -1,12 +1,17 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useIsAuthenticated, useMsal } from '@azure/msal-react';
+import { AUTH_BYPASS } from '../authConfig';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  if (AUTH_BYPASS) {
+    return <>{children}</>;
+  }
+
   const isAuthenticated = useIsAuthenticated();
   const { inProgress } = useMsal();
   const navigate = useNavigate();
@@ -44,3 +49,4 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   return <>{children}</>;
 }
+ 

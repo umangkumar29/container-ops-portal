@@ -1,7 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from core import Settings, get_settings
+from azure.core.credentials import TokenCredential
+from core import Settings, get_settings, get_azure_credential
 from db import get_db_session
 from repositories import EnvironmentRepository
 from services import AzureContainerAppService, EnvironmentService
@@ -15,8 +16,14 @@ def get_environment_repository(session: Session = Depends(get_db_session)) -> En
     return EnvironmentRepository(session)
 
 
-def get_azure_service(settings: Settings = Depends(get_app_settings)) -> AzureContainerAppService:
-    return AzureContainerAppService(settings=settings)
+def get_azure_service(
+    settings: Settings = Depends(get_app_settings),
+    credential: TokenCredential = Depends(get_azure_credential),
+) -> AzureContainerAppService:
+    return AzureContainerAppService(
+        credential=credential,
+        subscription_id=settings.azure_subscription_id or "",
+    )
 
 
 def get_environment_service(
@@ -25,3 +32,5 @@ def get_environment_service(
 ) -> EnvironmentService:
     return EnvironmentService(repository=repository, azure_service=azure_service)
 
+ 
+ 
