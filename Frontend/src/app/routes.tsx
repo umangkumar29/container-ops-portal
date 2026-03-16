@@ -3,6 +3,7 @@ import { Home } from "./pages/Home";
 import { Analytics } from "./pages/Analytics";
 import { Login } from "./pages/Login";
 import { UserManagement } from "./pages/UserManagement";
+import { Logs } from "./pages/Logs";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 
@@ -26,5 +27,9 @@ export const router = createBrowserRouter([
   {
     path: "/analytics/:subscriptionId/:resourceGroup",
     element: <ProtectedRoute><Analytics /></ProtectedRoute >,
+  },
+  {
+    path: "/logs/:subscriptionId/:resourceGroup/:appName",
+    element: <ProtectedRoute><Logs /></ProtectedRoute>,
   },
 ]);

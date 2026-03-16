@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { Shield, Box, Server, ArrowRight, AlertCircle } from 'lucide-react';
+import { Shield, Box, Server, ArrowRight, CheckCircle } from 'lucide-react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { AUTH_BYPASS, loginRequest } from '../authConfig';
  
@@ -179,10 +179,10 @@ export function Login() {
               </p>
  
               {authFailedWarning && !isLoading && (
-                <div className="w-full mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-200 leading-relaxed">
-                    Session expired or authentication failed. Please sign in again to access the control center.
+                <div className="w-full mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-emerald-200 leading-relaxed font-medium">
+                    Ready to connect. Please sign in to securely access the enterprise control center.
                   </p>
                 </div>
               )}

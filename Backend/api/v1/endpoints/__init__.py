@@ -1,4 +1,2 @@
-from api.v1.endpoints import environments
-
-__all__ = ["environments"]
-
+# Endpoints are registered directly in router.py.
+# This file is intentionally empty.

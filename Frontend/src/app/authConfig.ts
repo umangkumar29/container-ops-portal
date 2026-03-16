@@ -20,11 +20,12 @@ export const loginRequest = AUTH_BYPASS
     ? { scopes: [] }
     : {
         scopes: [
-            "User.Read",
+            // Required to call Azure Resource Manager APIs (Container Apps, Cost Management, etc.)
+            // This tells Microsoft: "issue a token that is valid for Azure ARM, on behalf of the user"
+            "https://management.azure.com/user_impersonation",
         ],
     };
 
 // Create the MSAL instance only when authentication is enabled
 export const msalInstance = AUTH_BYPASS ? null : new PublicClientApplication(msalConfig);
- 
- 
+

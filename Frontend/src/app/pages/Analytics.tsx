@@ -56,6 +56,16 @@ export function Analytics() {
 
   const decodedRG = resourceGroup ? decodeURIComponent(resourceGroup) : '';
 
+  // Fetch subscriptions for the sidebar
+  const { data: apps = [] } = useQuery({
+    queryKey: QUERY_KEYS.APPS,
+    queryFn: environmentService.discoverAll,
+    ...QUERY_CONFIG.APPS,
+  });
+
+  const uniqueSubscriptions = Array.from(new Set(apps.map(a => JSON.stringify({ id: a.subscriptionId, name: a.subscriptionName }))))
+    .map(s => JSON.parse(s)) as { id: string; name: string }[];
+
   // ─── RG cost query — cached per (subscriptionId, resourceGroup, days) ──────
   const {
     data: costData,
@@ -135,7 +145,12 @@ export function Analytics() {
   }
 
   return (
-    <DashboardLayout userName="Superadmin" userRole="System">
+    <DashboardLayout 
+      userName="Superadmin" 
+      userRole="System" 
+      activeSub={subscriptionId}
+      subscriptions={uniqueSubscriptions}
+    >
       <div className="relative max-w-[1600px] mx-auto w-full">
         {/* Background glows */}
         <div className="fixed top-0 right-0 -z-10 w-[600px] h-[600px] bg-violet-500/5 dark:bg-violet-500/10 blur-[120px] rounded-full pointer-events-none" />

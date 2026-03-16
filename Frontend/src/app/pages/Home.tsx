@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IndianRupee, Search, ChevronDown,
-  Box, RefreshCw, StopCircle, PlayCircle, Network, Loader2, BarChart2
+  Box, RefreshCw, StopCircle, PlayCircle, Network, Loader2, BarChart2, ScrollText
 } from 'lucide-react';
 import { environmentService, type EnvironmentApp } from '../services/api';
 import { toast } from 'sonner';
@@ -304,6 +304,10 @@ export function Home() {
                                       onStart={(e) => handleStart(app, e)} 
                                       onStop={(e) => handleStop(app, e)} 
                                       onRestart={(e) => handleRestart(app, e)} 
+                                      onLogs={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/logs/${app.subscriptionId}/${encodeURIComponent(app.resourceGroup)}/${encodeURIComponent(app.name)}`);
+                                      }}
                                       isProcessing={!!processingApps[app.id]}
                                     />
                                   </td>
@@ -367,12 +371,14 @@ function ActionButtons({
   onStart, 
   onStop, 
   onRestart,
+  onLogs,
   isProcessing
 }: { 
   status: string, 
   onStart: (e:any)=>void, 
   onStop: (e:any)=>void, 
   onRestart: (e:any)=>void,
+  onLogs: (e:any)=>void,
   isProcessing?: boolean
 }) {
   const isRunning = status === 'Running';
@@ -421,6 +427,14 @@ function ActionButtons({
         <RefreshCw className="w-4 h-4" />
       </button>
 
+      {/* Logs Button - Indigo */}
+      <button 
+        onClick={onLogs}
+        className="w-8 h-8 flex items-center justify-center rounded-lg transition-all border border-transparent text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/30"
+        title="View Logs"
+      >
+        <ScrollText className="w-4 h-4" />
+      </button>
 
     </div>
   );

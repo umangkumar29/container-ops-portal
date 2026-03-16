@@ -1,12 +1,32 @@
 import { msalInstance, loginRequest, AUTH_BYPASS } from "../authConfig";
 
 export interface EnvironmentApp {
-    id: string;         // The Azure Resource ID
-    name: string;       // The Container App name
+    id: string;
+    name: string;
     resourceGroup: string;
     subscriptionId: string;
     subscriptionName: string;
-    status: string;     // Running, Stopped, Failed, etc.
+    status: string;
+}
+
+export type LogLevel = 'INFO' | 'WARN' | 'ERROR';
+
+export interface LogEntry {
+    timestamp: string;
+    level: LogLevel;
+    container: string;
+    message: string;
+}
+
+export interface LogsResponse {
+    app_name: string;
+    resource_group: string;
+    total: number;
+    info_count: number;
+    warn_count: number;
+    error_count: number;
+    entries: LogEntry[];
+    has_more: boolean;
 }
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
@@ -108,6 +128,26 @@ export const environmentService = {
             { headers: await authHeaders() },
         );
         if (!response.ok) throw new Error(`Failed to fetch RG cost: ${response.statusText}`);
+        return response.json();
+    },
+
+    async fetchAppLogs(
+        subscriptionId: string,
+        resourceGroup: string,
+        appName: string,
+        options: { hours?: number; severity?: 'all' | 'warn' | 'error'; search?: string; limit?: number } = {},
+    ): Promise<LogsResponse> {
+        const params = new URLSearchParams();
+        if (options.hours)    params.set('hours', String(options.hours));
+        if (options.severity) params.set('severity', options.severity);
+        if (options.search)   params.set('search', options.search);
+        if (options.limit)    params.set('limit', String(options.limit));
+
+        const response = await fetch(
+            `${API_BASE_URL}/logs/${subscriptionId}/${resourceGroup}/${appName}?${params}`,
+            { headers: await authHeaders() },
+        );
+        if (!response.ok) throw new Error(`Failed to fetch logs: ${response.statusText}`);
         return response.json();
     },
 };

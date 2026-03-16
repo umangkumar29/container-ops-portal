@@ -1,14 +1,3 @@
-from api.dependencies.services import (
-    get_app_settings,
-    get_azure_service,
-    get_environment_repository,
-    get_environment_service,
-)
-
-__all__ = [
-    "get_app_settings",
-    "get_azure_service",
-    "get_environment_repository",
-    "get_environment_service",
-]
-
+# This package is intentionally empty.
+# The old DB-based service dependencies have been removed.
+# All Azure operations now use the token-based credential in core/auth.py.

@@ -28,10 +28,15 @@ class Settings(BaseSettings):
         description="Seconds to keep Azure cost responses cached. Set to 0 to disable caching.",
     )
 
-    cors_allow_origins: list[str] = Field(default_factory=lambda: ["*"])
+    # Restrict to specific origins — never use "*" in production.
+    # In production set CORS_ALLOW_ORIGINS to your frontend URL, e.g.:
+    #   CORS_ALLOW_ORIGINS='["https://devops-portal.yourcompany.com"]'
+    cors_allow_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
+    )
     cors_allow_credentials: bool = True
-    cors_allow_methods: list[str] = Field(default_factory=lambda: ["*"])
-    cors_allow_headers: list[str] = Field(default_factory=lambda: ["*"])
+    cors_allow_methods: list[str] = Field(default_factory=lambda: ["GET", "POST", "OPTIONS"])
+    cors_allow_headers: list[str] = Field(default_factory=lambda: ["Authorization", "Content-Type"])
     docs_url: str | None = Field("/api/docs", alias="DOCS_URL")
     openapi_url: str = Field("/api/openapi.json", alias="OPENAPI_URL")
     redoc_url: str | None = Field("/api/redoc", alias="REDOC_URL")
